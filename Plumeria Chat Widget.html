@@ -1,0 +1,657 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Plumeria Chat Widget</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=DM+Sans:wght@400;500;600&display=swap">
+<style>
+/*
+  Plumeria Vacation Rentals chat widget
+  Matched to plumeriavacationrentals.com:
+  - Dark tropical green #1A3B34 chrome
+  - Warm cream #FAF7F0 backgrounds
+  - Gold #B8923E accents
+  - Playfair Display serif headings
+  - Sage-tinted card fills
+  - Rounded pill-style quick replies
+*/
+:root {
+  --green: #1A3B34;
+  --green-hover: #152F29;
+  --green-light: #E8EFEC;
+  --gold: #B8923E;
+  --gold-soft: #F0E6D0;
+  --cream: #FAF7F0;
+  --cream-deep: #F3EEE4;
+  --card: #F5F2EB;
+  --white: #FFFFFF;
+  --text: #1C1C1A;
+  --text-mid: #4A4A45;
+  --text-muted: #8A8880;
+  --border: #E5E0D6;
+  --shadow: rgba(26, 59, 52, 0.15);
+  --serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+/* This widget is designed for the light Plumeria site — single theme, no dark mode */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--cream);
+  color: var(--text);
+  font-family: var(--sans);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.demo-note {
+  max-width: 500px;
+  margin: 60px auto;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.demo-note strong {
+  display: block;
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+/* ── Toggle button ── */
+#chat-toggle {
+  position: fixed;
+  bottom: 24px;
+  right: max(24px, env(safe-area-inset-right, 0px));
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: none;
+  background: var(--green);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 16px var(--shadow);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+#chat-toggle:hover { transform: scale(1.05); box-shadow: 0 6px 24px var(--shadow); }
+#chat-toggle:active { transform: scale(0.95); }
+#chat-toggle svg { width: 26px; height: 26px; transition: opacity 0.15s; }
+#chat-toggle .icon-close { position: absolute; opacity: 0; }
+#chat-toggle.open .icon-chat { opacity: 0; }
+#chat-toggle.open .icon-close { opacity: 1; }
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 4px 16px var(--shadow), 0 0 0 0 rgba(26,59,52,0.3); }
+  70% { box-shadow: 0 4px 16px var(--shadow), 0 0 0 14px rgba(26,59,52,0); }
+  100% { box-shadow: 0 4px 16px var(--shadow), 0 0 0 0 rgba(26,59,52,0); }
+}
+#chat-toggle:not(.open) { animation: pulse-ring 2.5s ease-out 1.5s 2; }
+
+/* ── Chat panel ── */
+#chat-panel {
+  position: fixed;
+  bottom: 102px;
+  right: max(24px, env(safe-area-inset-right, 0px));
+  width: 388px;
+  max-width: calc(100vw - 32px);
+  height: 570px;
+  max-height: calc(100vh - 140px);
+  background: var(--cream);
+  border-radius: 14px;
+  box-shadow: 0 16px 56px var(--shadow), 0 0 0 1px var(--border);
+  z-index: 9998;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(14px) scale(0.97);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+#chat-panel.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+/* ── Header — matches the site's dark green top bar ── */
+.chat-header {
+  background: var(--green);
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.chat-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  border: 1.5px solid rgba(255,255,255,0.15);
+}
+.chat-header-info { flex: 1; min-width: 0; }
+.chat-header-info h3 {
+  font-family: var(--serif);
+  font-size: 15.5px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+}
+.chat-header-info .tagline {
+  font-size: 11.5px;
+  color: var(--gold);
+  font-weight: 500;
+  margin-top: 2px;
+  letter-spacing: 0.02em;
+}
+.chat-header-info .status {
+  font-size: 10.5px;
+  color: rgba(255,255,255,0.55);
+  margin-top: 1px;
+}
+.online-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #5FBD6A;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* ── Messages ── */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--cream);
+}
+.chat-messages::-webkit-scrollbar { width: 3px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.msg {
+  max-width: 84%;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.msg.bot {
+  background: var(--white);
+  color: var(--text);
+  border-radius: 2px 14px 14px 14px;
+  align-self: flex-start;
+  border: 1px solid var(--border);
+}
+.msg.user {
+  background: var(--green);
+  color: #FFFFFF;
+  border-radius: 14px 14px 2px 14px;
+  align-self: flex-end;
+}
+.msg a { text-decoration: underline; text-underline-offset: 2px; }
+.msg.bot a { color: var(--green); }
+.msg.user a { color: var(--gold-soft); }
+
+/* Typing dots */
+.typing {
+  display: flex;
+  gap: 5px;
+  padding: 10px 14px;
+  align-self: flex-start;
+  background: var(--white);
+  border-radius: 2px 14px 14px 14px;
+  border: 1px solid var(--border);
+}
+.typing span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold); opacity: 0.4;
+  animation: bounce 1.2s infinite;
+}
+.typing span:nth-child(2) { animation-delay: 0.15s; }
+.typing span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+
+/* ── Quick replies — site's pill badge style ── */
+.quick-replies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 16px 12px;
+  flex-shrink: 0;
+}
+.quick-btn {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  background: var(--white);
+  color: var(--text-mid);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+.quick-btn:hover {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+
+/* ── Input ── */
+.chat-input-area {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-shrink: 0;
+  background: var(--white);
+}
+#chat-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  background: var(--cream);
+  color: var(--text);
+  resize: none;
+  max-height: 96px;
+  line-height: 1.45;
+  outline: none;
+  transition: border-color 0.15s;
+}
+#chat-input::placeholder { color: var(--text-muted); }
+#chat-input:focus { border-color: var(--green); }
+#send-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: none;
+  background: var(--green);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, transform 0.1s;
+}
+#send-btn:hover { background: var(--green-hover); }
+#send-btn:active { transform: scale(0.93); }
+#send-btn:disabled { opacity: 0.35; cursor: default; }
+#send-btn svg { width: 17px; height: 17px; }
+
+.chat-footer {
+  text-align: center;
+  padding: 5px 14px 7px;
+  font-size: 9.5px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  background: var(--white);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Name overlay — warm welcome screen ── */
+.name-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--cream);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 28px;
+  gap: 12px;
+  text-align: center;
+}
+.name-overlay.hidden { display: none; }
+.name-overlay .welcome-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--green);
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 100px;
+  margin-bottom: 8px;
+}
+.name-overlay h3 {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+.name-overlay .gold-line {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--gold);
+  font-weight: 500;
+}
+.name-overlay p {
+  font-size: 13px;
+  color: var(--text-mid);
+  line-height: 1.6;
+  max-width: 280px;
+}
+.name-overlay .perks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 4px 0;
+}
+.name-overlay .perk {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--green);
+  background: var(--green-light);
+  padding: 4px 10px;
+  border-radius: 100px;
+  letter-spacing: 0.01em;
+}
+#name-input {
+  width: 100%;
+  max-width: 250px;
+  padding: 11px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--sans);
+  font-size: 14px;
+  background: var(--white);
+  color: var(--text);
+  text-align: center;
+  outline: none;
+  margin-top: 4px;
+}
+#name-input:focus { border-color: var(--green); }
+#name-submit {
+  background: var(--green);
+  color: #fff;
+  border: none;
+  padding: 12px 36px;
+  border-radius: 10px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  letter-spacing: 0.01em;
+}
+#name-submit:hover { background: var(--green-hover); }
+
+@media (max-width: 440px) {
+  #chat-panel {
+    bottom: 0; right: 0;
+    width: 100vw; max-width: 100vw;
+    height: calc(100vh - 60px); max-height: calc(100vh - 60px);
+    border-radius: 14px 14px 0 0;
+  }
+  #chat-toggle { bottom: 16px; right: 16px; }
+}
+</style>
+
+<!-- Toggle -->
+<button id="chat-toggle" aria-label="Open chat">
+  <svg class="icon-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+  <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</button>
+
+<!-- Panel -->
+<div id="chat-panel">
+  <!-- Name screen -->
+  <div class="name-overlay" id="name-overlay">
+    <div class="welcome-badge">🌺 Plumeria Vacation Rentals</div>
+    <h3>Welcome to<br>Waikiki Banyan</h3>
+    <div class="gold-line">Free Parking & No Resort Fees</div>
+    <p>Ask about dates, rates, amenities, or anything about your Waikiki stay. What's your first name?</p>
+    <div class="perks">
+      <span class="perk">🚗 Free Parking</span>
+      <span class="perk">🏖️ 1 Block to Beach</span>
+      <span class="perk">🏔️ Mountain Views</span>
+    </div>
+    <input type="text" id="name-input" placeholder="Your first name" autocomplete="given-name">
+    <button id="name-submit">Start Chatting</button>
+  </div>
+
+  <!-- Header -->
+  <div class="chat-header">
+    <div class="chat-logo">🌺</div>
+    <div class="chat-header-info">
+      <h3>Plumeria Vacation Rentals</h3>
+      <div class="tagline">Free Parking · No Resort Fees · Mountain Views</div>
+      <div class="status"><span class="online-dot"></span>Replies instantly</div>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div class="chat-messages" id="chat-messages"></div>
+
+  <!-- Quick replies -->
+  <div class="quick-replies" id="quick-replies">
+    <button class="quick-btn" data-msg="What are the nightly rates?">Nightly Rates</button>
+    <button class="quick-btn" data-msg="Is parking included?">Free Parking?</button>
+    <button class="quick-btn" data-msg="What amenities are included?">Amenities</button>
+    <button class="quick-btn" data-msg="What views does the condo have?">Views</button>
+  </div>
+
+  <!-- Input -->
+  <div class="chat-input-area">
+    <textarea id="chat-input" rows="1" placeholder="Ask about dates, rates, amenities..." disabled></textarea>
+    <button id="send-btn" disabled aria-label="Send">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+  <div class="chat-footer">Plumeria Vacation Rentals · Waikiki Banyan · Honolulu, HI</div>
+</div>
+
+<!-- Demo note -->
+<div class="demo-note">
+  <strong>Plumeria Chat Widget Preview</strong>
+  Click the green button to test. This connects live to the n8n booking assistant at Waikiki Banyan.
+</div>
+
+<script>
+(() => {
+  const WEBHOOK_URL = 'https://tca-wireless.app.n8n.cloud/webhook/239ddf17-73e7-43f8-99ff-ce8f232e476c';
+  const CHANNEL = 'Website Chat';
+
+  let sessionId = '';
+  let customerName = '';
+  let isOpen = false;
+  let isSending = false;
+
+  function genSessionId() {
+    return 'web-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  }
+
+  const toggle = document.getElementById('chat-toggle');
+  const panel = document.getElementById('chat-panel');
+  const messages = document.getElementById('chat-messages');
+  const input = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('send-btn');
+  const nameOverlay = document.getElementById('name-overlay');
+  const nameInput = document.getElementById('name-input');
+  const nameSubmit = document.getElementById('name-submit');
+  const quickReplies = document.getElementById('quick-replies');
+
+  // Restore session
+  try {
+    const saved = JSON.parse(localStorage.getItem('plumeria-chat'));
+    if (saved && saved.name && saved.sessionId) {
+      customerName = saved.name;
+      sessionId = saved.sessionId;
+      nameOverlay.classList.add('hidden');
+      input.disabled = false;
+      sendBtn.disabled = false;
+      if (saved.messages) saved.messages.forEach(m => addMessage(m.text, m.from, true));
+    }
+  } catch (e) {}
+
+  // Toggle
+  toggle.addEventListener('click', () => {
+    isOpen = !isOpen;
+    toggle.classList.toggle('open', isOpen);
+    panel.classList.toggle('open', isOpen);
+    if (isOpen) {
+      (customerName ? input : nameInput).focus();
+      scrollToBottom();
+    }
+  });
+
+  // Name
+  function submitName() {
+    const name = nameInput.value.trim();
+    if (!name) { nameInput.focus(); return; }
+    customerName = name;
+    sessionId = genSessionId();
+    nameOverlay.classList.add('hidden');
+    input.disabled = false;
+    sendBtn.disabled = false;
+    saveSession();
+    addMessage('Aloha ' + customerName + '! 🌺 I\'m the Plumeria booking assistant. I can help with dates, rates, amenities, and anything about your Waikiki stay. What would you like to know?', 'bot');
+    input.focus();
+  }
+  nameSubmit.addEventListener('click', submitName);
+  nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitName(); });
+
+  // Quick replies
+  quickReplies.addEventListener('click', e => {
+    const btn = e.target.closest('.quick-btn');
+    if (!btn || !customerName || isSending) return;
+    sendMessage(btn.dataset.msg);
+    quickReplies.style.display = 'none';
+  });
+
+  // Send
+  async function sendMessage(text) {
+    if (!text.trim() || isSending) return;
+    isSending = true;
+    input.value = '';
+    input.style.height = 'auto';
+    sendBtn.disabled = true;
+    addMessage(text, 'user');
+    quickReplies.style.display = 'none';
+
+    const typing = document.createElement('div');
+    typing.className = 'typing';
+    typing.innerHTML = '<span></span><span></span><span></span>';
+    messages.appendChild(typing);
+    scrollToBottom();
+
+    try {
+      const res = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: CHANNEL,
+          name: customerName,
+          phone: '',
+          message: text,
+          sessionId: sessionId
+        })
+      });
+      typing.remove();
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      const ct = res.headers.get('content-type') || '';
+      let reply = '';
+      if (ct.includes('application/json')) {
+        const data = await res.json();
+        reply = data.output || data.text || data.message || data.response || (typeof data === 'string' ? data : JSON.stringify(data));
+      } else {
+        reply = await res.text();
+      }
+      addMessage(reply ? reply.trim() : "I'm having a moment! In the meantime, reach us at (808) 671-9191 🌺", 'bot');
+    } catch (err) {
+      typing.remove();
+      console.error('Chat error:', err);
+      addMessage("Sorry, I couldn't connect right now. Please try again, or reach us at (808) 671-9191 🌺", 'bot');
+    }
+    isSending = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+
+  sendBtn.addEventListener('click', () => sendMessage(input.value));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input.value); }
+  });
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 96) + 'px';
+  });
+
+  function addMessage(text, from, silent) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + from;
+    let html = escapeHtml(text);
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+    div.innerHTML = html;
+    messages.appendChild(div);
+    scrollToBottom();
+    if (!silent) saveSession();
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function scrollToBottom() {
+    requestAnimationFrame(() => { messages.scrollTop = messages.scrollHeight; });
+  }
+
+  function saveSession() {
+    try {
+      const saved = [];
+      messages.querySelectorAll('.msg').forEach(m => {
+        saved.push({ text: m.textContent, from: m.classList.contains('user') ? 'user' : 'bot' });
+      });
+      localStorage.setItem('plumeria-chat', JSON.stringify({
+        name: customerName, sessionId: sessionId, messages: saved.slice(-30)
+      }));
+    } catch (e) {}
+  }
+})();
+</script>
+
+</body></html>
